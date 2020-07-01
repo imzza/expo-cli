@@ -1,6 +1,7 @@
 import chalk from 'chalk';
 import log from '../../log';
 import * as iosProfileView from './IosProvisioningProfile';
+import * as appleApi from '../../appleApi';
 
 import { Context, IView } from '../context';
 import { IosDistCredentials } from '../credentials';
@@ -44,6 +45,15 @@ export class SetupIosProvisioningProfile implements IView {
       this._experienceName,
       this._bundleIdentifier
     );
+
+    if (ctx.hasAppleCtx() || !configuredProfile) {
+      await ctx.ensureAppleCtx();
+      await appleApi.ensureAppExists(
+        ctx.appleCtx,
+        { experienceName: this._experienceName, bundleIdentifier: this._bundleIdentifier },
+        { enablePushNotifications: true }
+      );
+    }
 
     // We dont have a profile on expo servers or
     // The configured profile is associated with some other dist cert

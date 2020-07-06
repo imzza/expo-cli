@@ -10,7 +10,7 @@ import ora from 'ora';
 import chalk from 'chalk';
 import { v4 as uuidv4 } from 'uuid';
 
-import { EasConfig } from './easJson';
+import { EasConfig } from '../../easJson';
 import { makeProjectTarballAsync } from './utils';
 import log from '../../log';
 import { UploadType, uploadAsync } from '../../uploads';
@@ -41,8 +41,8 @@ export interface BuilderContext {
 
 export interface Builder {
   ctx: BuilderContext;
-  ensureCredentials(): Promise<void>;
-  prepareJob(archiveUrl: string): Promise<Job>;
+  ensureCredentialsAsync(): Promise<void>;
+  prepareJobAsync(archiveUrl: string): Promise<Job>;
 }
 
 export async function createBuilderContextAsync(
@@ -69,7 +69,7 @@ export async function createBuilderContextAsync(
 export async function startBuildAsync(client: ApiV2, builder: Builder): Promise<string> {
   const tarPath = path.join(os.tmpdir(), `${uuidv4()}.tar.gz`);
   try {
-    await builder.ensureCredentials();
+    await builder.ensureCredentialsAsync();
 
     const fileSize = await makeProjectTarballAsync(tarPath);
 
@@ -80,7 +80,7 @@ export async function startBuildAsync(client: ApiV2, builder: Builder): Promise<
       createProgressTracker(fileSize)
     );
 
-    const job = await builder.prepareJob(archiveUrl);
+    const job = await builder.prepareJobAsync(archiveUrl);
     log('Starting build');
     log(JSON.stringify(job, null, 2));
     const { buildId } = await client.postAsync(`projects/${builder.ctx.projectId}/builds`, {

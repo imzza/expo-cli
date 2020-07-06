@@ -53,12 +53,12 @@ interface iOSCredentials {
   };
 }
 
-async function exists(projectDir: string): Promise<boolean> {
+async function fileExistsAsync(projectDir: string): Promise<boolean> {
   return await fs.pathExists(path.join(projectDir, 'credentials.json'));
 }
 
-async function readAndroid(projectDir: string): Promise<AndroidCredentials> {
-  const credentialsJson = await read(projectDir);
+async function readAndroidAsync(projectDir: string): Promise<AndroidCredentials> {
+  const credentialsJson = await readAsync(projectDir);
   if (!credentialsJson.android) {
     throw new Error('Android credentials are missing from credentials.json'); // TODO: add fyi
   }
@@ -73,8 +73,8 @@ async function readAndroid(projectDir: string): Promise<AndroidCredentials> {
   };
 }
 
-async function readIos(projectDir: string): Promise<iOSCredentials> {
-  const credentialsJson = await read(projectDir);
+async function readIosAsync(projectDir: string): Promise<iOSCredentials> {
+  const credentialsJson = await readAsync(projectDir);
   if (!credentialsJson.ios) {
     throw new Error('iOS credentials are missing from credentials.json'); // TODO: add fyi
   }
@@ -87,19 +87,19 @@ async function readIos(projectDir: string): Promise<iOSCredentials> {
   };
 }
 
-async function read(projectDir: string): Promise<CredentialsJson> {
+async function readAsync(projectDir: string): Promise<CredentialsJson> {
   const credentialsJsonFilePath = path.join(projectDir, 'credentials.json');
-  let turtleJSONRaw;
+  let credentialsJSONRaw;
   try {
-    const turtleJSONContents = await fs.readFile(credentialsJsonFilePath, 'utf8');
-    turtleJSONRaw = JSON.parse(turtleJSONContents);
+    const credentialsJSONContents = await fs.readFile(credentialsJsonFilePath, 'utf8');
+    credentialsJSONRaw = JSON.parse(credentialsJSONContents);
   } catch (err) {
     throw new Error(
-      `credntials.json must exist in the project root directory and consist a valid json`
+      `credentials.json must exist in the project root directory and consist a valid JSON`
     );
   }
 
-  const { value: credentialsJson, error } = CredentialsJsonSchema.validate(turtleJSONRaw, {
+  const { value: credentialsJson, error } = CredentialsJsonSchema.validate(credentialsJSONRaw, {
     stripUnknown: true,
     convert: true,
     abortEarly: false,
@@ -111,4 +111,4 @@ async function read(projectDir: string): Promise<CredentialsJson> {
   return credentialsJson;
 }
 
-export default { readAndroid, readIos, exists };
+export default { readAndroidAsync, readIosAsync, fileExistsAsync };

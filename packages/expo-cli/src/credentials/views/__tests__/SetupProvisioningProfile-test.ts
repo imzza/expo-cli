@@ -13,6 +13,7 @@ const mockProvProfManagerUseExisting = jest.fn();
 const mockProvProfManagerList = jest.fn(() => testProvisioningProfilesFromApple);
 jest.mock('../../../appleApi', () => {
   return {
+    ensureAppExists: jest.fn(),
     ProvisioningProfileManager: jest.fn().mockImplementation(() => ({
       create: mockProvProfManagerCreate,
       useExisting: mockProvProfManagerUseExisting,

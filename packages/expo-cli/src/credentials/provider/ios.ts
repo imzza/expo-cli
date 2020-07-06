@@ -31,11 +31,11 @@ export class iOSCredentialsProvider implements CredentialsProvider {
     return `@${accountName}/${projectName}`;
   }
 
-  public async init() {
+  public async initAsync() {
     await this.ctx.init(this.projectDir);
   }
 
-  public async hasRemote(): Promise<boolean> {
+  public async hasRemoteAsync(): Promise<boolean> {
     const distCert = await this.ctx.ios.getDistCert(
       this.projectFullName,
       this.options.bundleIdentifier
@@ -47,19 +47,19 @@ export class iOSCredentialsProvider implements CredentialsProvider {
     return !!(distCert && provisioningProfile);
   }
 
-  public async hasLocal(): Promise<boolean> {
-    if (!(await credentialsJson.exists(this.projectDir))) {
+  public async hasLocalAsync(): Promise<boolean> {
+    if (!(await credentialsJson.fileExistsAsync(this.projectDir))) {
       return false;
     }
     try {
-      await credentialsJson.readAndroid(this.projectDir);
+      await credentialsJson.readIosAsync(this.projectDir);
       return true;
     } catch (_) {
       return false;
     }
   }
 
-  public async useRemote(): Promise<void> {
+  public async useRemoteAsync(): Promise<void> {
     await runCredentialsManager(
       this.ctx,
       new SetupIosDist({
@@ -82,13 +82,13 @@ export class iOSCredentialsProvider implements CredentialsProvider {
         distCert,
       })
     );
-    this.credentials = await this.getRemote();
+    this.credentials = await this.getRemoteAsync();
   }
-  public async useLocal(): Promise<void> {
-    this.credentials = await this.getLocal();
+  public async useLocalAsync(): Promise<void> {
+    this.credentials = await this.getLocalAsync();
   }
-  public async isLocalSynced(): Promise<boolean> {
-    const [remote, local] = await Promise.allSettled([this.getRemote(), this.getLocal()]);
+  public async isLocalSyncedAsync(): Promise<boolean> {
+    const [remote, local] = await Promise.allSettled([this.getRemoteAsync(), this.getLocalAsync()]);
     if (remote.status === 'fulfilled' && local.status === 'fulfilled') {
       const r = remote.value;
       const l = local.value;
@@ -100,16 +100,16 @@ export class iOSCredentialsProvider implements CredentialsProvider {
     }
     return true;
   }
-  public async getCredentials(): Promise<iOSCredentials> {
+  public async getCredentialsAsync(): Promise<iOSCredentials> {
     if (!this.credentials) {
       throw new Error('credentials not specified'); // shouldn't happen
     }
     return this.credentials;
   }
-  private async getLocal(): Promise<iOSCredentials> {
-    return await credentialsJson.readIos(this.projectDir);
+  private async getLocalAsync(): Promise<iOSCredentials> {
+    return await credentialsJson.readIosAsync(this.projectDir);
   }
-  private async getRemote(): Promise<iOSCredentials> {
+  private async getRemoteAsync(): Promise<iOSCredentials> {
     const distCert = await this.ctx.ios.getDistCert(
       this.projectFullName,
       this.options.bundleIdentifier

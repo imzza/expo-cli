@@ -1,11 +1,17 @@
 import { BuildType, Job, Platform, iOS, validateJob } from '@expo/build-tools';
 
-import { CredentialsSource, Keystore } from '../../credentials/credentials';
+import { Keystore } from '../../credentials/credentials';
 import { Context } from '../../credentials/context';
-import { iOSCredentials, iOSCredentialsProvider } from '../../credentials/provider';
-import { ensureCredentials } from './credentials';
+import { iOSCredentials, iOSCredentialsProvider } from '../../credentials/provider/ios';
+import { ensureCredentialsAsync } from './credentials';
 import { Builder, BuilderContext } from './build';
-import { Workflow, iOSGenericPreset, iOSManagedPreset, iOSPreset } from './easJson';
+import {
+  CredentialsSource,
+  Workflow,
+  iOSBuildProfile,
+  iOSGenericBuildProfile,
+  iOSManagedBuildProfile,
+} from '../../easJson';
 
 interface CommonJobProperties {
   platform: Platform.iOS;
@@ -21,26 +27,26 @@ interface CommonJobProperties {
 
 class iOSBuilder implements Builder {
   private credentials?: iOSCredentials;
-  private preset: iOSPreset;
+  private buildProfile: iOSBuildProfile;
 
   constructor(public readonly ctx: BuilderContext) {
     if (!ctx.eas.builds.ios) {
       throw new Error("missing ios configuration, shouldn't happen");
     }
-    this.preset = ctx.eas.builds.ios;
+    this.buildProfile = ctx.eas.builds.ios;
   }
 
-  public async prepareJob(archiveUrl: string): Promise<Job> {
-    if (this.preset.workflow === Workflow.Generic) {
-      return validateJob(await this.prepareGenericJob(archiveUrl, this.preset));
-    } else if (this.preset.workflow === Workflow.Managed) {
-      return validateJob(await this.prepareManagedJob(archiveUrl, this.preset));
+  public async prepareJobAsync(archiveUrl: string): Promise<Job> {
+    if (this.buildProfile.workflow === Workflow.Generic) {
+      return validateJob(await this.prepareGenericJobAsync(archiveUrl, this.buildProfile));
+    } else if (this.buildProfile.workflow === Workflow.Managed) {
+      return validateJob(await this.prepareManagedJobAsync(archiveUrl, this.buildProfile));
     } else {
       throw new Error("Unknown workflow. Shouldn't happen");
     }
   }
 
-  public async ensureCredentials(): Promise<void> {
+  public async ensureCredentialsAsync(): Promise<void> {
     if (!this.shouldLoadCredentials()) {
       return;
     }
@@ -53,12 +59,16 @@ class iOSBuilder implements Builder {
       accountName: this.ctx.accountName,
       bundleIdentifier,
     });
-    await provider.init();
-    await ensureCredentials(provider, this.ctx, this.preset.workflow);
-    this.credentials = await provider.getCredentials();
+    await provider.initAsync();
+    await ensureCredentialsAsync(
+      provider,
+      this.buildProfile.workflow,
+      this.buildProfile.credentialsSource
+    );
+    this.credentials = await provider.getCredentialsAsync();
   }
 
-  private async prepareJobCommon(archiveUrl: string): Promise<Partial<CommonJobProperties>> {
+  private async prepareJobCommonAsync(archiveUrl: string): Promise<Partial<CommonJobProperties>> {
     const secrets = this.credentials
       ? {
           secrets: {
@@ -78,22 +88,22 @@ class iOSBuilder implements Builder {
     };
   }
 
-  private async prepareGenericJob(
+  private async prepareGenericJobAsync(
     archiveUrl: string,
-    preset: iOSGenericPreset
+    buildProfile: iOSGenericBuildProfile
   ): Promise<Partial<iOS.GenericJob>> {
     return {
-      ...(await this.prepareJobCommon(archiveUrl)),
+      ...(await this.prepareJobCommonAsync(archiveUrl)),
       type: BuildType.Generic,
     };
   }
 
-  private async prepareManagedJob(
+  private async prepareManagedJobAsync(
     archiveUrl: string,
-    preset: iOSManagedPreset
+    buildProfile: iOSManagedBuildProfile
   ): Promise<Partial<iOS.ManagedJob>> {
     return {
-      ...(await this.prepareJobCommon(archiveUrl)),
+      ...(await this.prepareJobCommonAsync(archiveUrl)),
       type: BuildType.Managed,
       packageJson: 'packageJson',
       manifest: 'manifest',
@@ -102,8 +112,9 @@ class iOSBuilder implements Builder {
 
   private shouldLoadCredentials(): boolean {
     return !!(
-      (this.preset.workflow === Workflow.Managed && this.preset.buildType === 'archive') ||
-      this.preset.workflow === Workflow.Generic
+      (this.buildProfile.workflow === Workflow.Managed &&
+        this.buildProfile.buildType === 'archive') ||
+      this.buildProfile.workflow === Workflow.Generic
     );
   }
 }

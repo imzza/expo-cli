@@ -1,8 +1,8 @@
 export interface CredentialsProvider {
   readonly platform: 'android' | 'ios';
-  hasRemote(): Promise<boolean>;
-  hasLocal(): Promise<boolean>;
-  useRemote(): Promise<void>;
-  useLocal(): Promise<void>;
-  isLocalSynced(): Promise<boolean>;
+  hasRemoteAsync(): Promise<boolean>;
+  hasLocalAsync(): Promise<boolean>;
+  useRemoteAsync(): Promise<void>;
+  useLocalAsync(): Promise<void>;
+  isLocalSyncedAsync(): Promise<boolean>;
 }

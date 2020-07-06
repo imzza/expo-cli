@@ -3,32 +3,31 @@ import { ApiV2 } from '@expo/xdl';
 import { Command } from 'commander';
 
 import log from '../../log';
-import { CredentialsSource } from '../../credentials/credentials';
 import { createBuilderContextAsync, startBuildAsync, waitForBuildEndAsync } from './build';
 import { AndroidBuilder } from './android';
 import { iOSBuilder } from './ios';
-import { EasConfig, EasJsonReader } from './easJson';
+import { CredentialsSource, EasConfig, EasJsonReader } from '../../easJson';
 import { printBuildTable } from './utils';
 
 interface Options {
   platform: Platform | 'all';
-  credentialsSource?: CredentialsSource;
   skipCredentialsCheck?: boolean;
   wait?: boolean;
-  preset: string;
+  profile: string;
 }
 
 async function buildAction(projectDir: string, options: Options): Promise<void> {
-  const { platform, preset } = options;
+  const { platform, profile } = options;
   if (!platform || !['android', 'ios', 'all'].includes(platform)) {
-    throw new Error('Param -p --platform is required, pass valid platform: [android|ios|all]');
+    throw new Error(
+      `-p/--platform is required, valid platforms: ${log.chalk.bold('android')}, ${log.chalk.bold(
+        'ios'
+      )}, ${log.chalk.bold('all')}`
+    );
   }
-  const eas: EasConfig = await new EasJsonReader(projectDir, {
-    platform,
-    credentialsSource: options.credentialsSource,
-  }).read(preset);
+  const easConfig: EasConfig = await new EasJsonReader(projectDir, platform).readAsync(profile);
 
-  const ctx = await createBuilderContextAsync(projectDir, eas);
+  const ctx = await createBuilderContextAsync(projectDir, easConfig);
   const client = ApiV2.clientForUser(ctx.user);
   const scheduledBuilds: Array<{ platform: Platform; buildId: string }> = [];
 
@@ -78,14 +77,9 @@ export default function (program: Command) {
     )
     .allowUnknownOption()
     .option('-p --platform <platform>')
-    .option(
-      '-s --credentials-source <source>',
-      'sources: [local|remote|auto]',
-      /^(local|remote|auto)$/i
-    )
     .option('--skip-credentials-check', 'Skip checking credentials', false)
     .option('--no-wait', 'Exit immediately after triggering build.', false)
-    .option('--preset <preset>', 'Build preset', 'release')
+    .option('--profile <profile>', 'Build profile', 'release')
     .asyncActionProjectDir(buildAction, { checkConfig: true });
 
   program

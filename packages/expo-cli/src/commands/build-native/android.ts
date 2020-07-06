@@ -1,12 +1,18 @@
 import { Android, BuildType, Job, Platform, validateJob } from '@expo/build-tools';
 
-import { CredentialsSource, Keystore } from '../../credentials/credentials';
-import { ensureCredentials } from './credentials';
+import { Keystore } from '../../credentials/credentials';
+import { ensureCredentialsAsync } from './credentials';
 import { credentialsJson } from '../../credentials/local';
-import { AndroidCredentials, AndroidCredentialsProvider } from '../../credentials/provider';
+import { AndroidCredentials, AndroidCredentialsProvider } from '../../credentials/provider/android';
 import prompt from '../../prompts';
 import { Builder, BuilderContext } from './build';
-import { AndroidGenericPreset, AndroidManagedPreset, AndroidPreset, Workflow } from './easJson';
+import {
+  AndroidBuildProfile,
+  AndroidGenericBuildProfile,
+  AndroidManagedBuildProfile,
+  CredentialsSource,
+  Workflow,
+} from '../../easJson';
 
 interface CommonJobProperties {
   platform: Platform.Android;
@@ -18,16 +24,16 @@ interface CommonJobProperties {
 
 class AndroidBuilder implements Builder {
   private credentials?: AndroidCredentials;
-  private preset: AndroidPreset;
+  private buildProfile: AndroidBuildProfile;
 
   constructor(public readonly ctx: BuilderContext) {
     if (!ctx.eas.builds.android) {
       throw new Error("missing android configuration, shouldn't happen");
     }
-    this.preset = ctx.eas.builds.android;
+    this.buildProfile = ctx.eas.builds.android;
   }
 
-  public async ensureCredentials(): Promise<void> {
+  public async ensureCredentialsAsync(): Promise<void> {
     if (!this.shouldLoadCredentials()) {
       return;
     }
@@ -35,22 +41,26 @@ class AndroidBuilder implements Builder {
       projectName: this.ctx.projectName,
       accountName: this.ctx.accountName,
     });
-    await provider.init();
-    await ensureCredentials(provider, this.ctx, this.preset.workflow);
-    this.credentials = await provider.getCredentials();
+    await provider.initAsync();
+    await ensureCredentialsAsync(
+      provider,
+      this.buildProfile.workflow,
+      this.buildProfile.credentialsSource
+    );
+    this.credentials = await provider.getCredentialsAsync();
   }
 
-  public async prepareJob(archiveUrl: string): Promise<Job> {
-    if (this.preset.workflow === Workflow.Generic) {
-      return validateJob(await this.prepareGenericJob(archiveUrl, this.preset));
-    } else if (this.preset.workflow === Workflow.Managed) {
-      return validateJob(await this.prepareManagedJob(archiveUrl, this.preset));
+  public async prepareJobAsync(archiveUrl: string): Promise<Job> {
+    if (this.buildProfile.workflow === Workflow.Generic) {
+      return validateJob(await this.prepareGenericJobAsync(archiveUrl, this.buildProfile));
+    } else if (this.buildProfile.workflow === Workflow.Managed) {
+      return validateJob(await this.prepareManagedJobAsync(archiveUrl, this.buildProfile));
     } else {
       throw new Error("Unknown workflow. Shouldn't happen");
     }
   }
 
-  private async prepareJobCommon(archiveUrl: string): Promise<Partial<CommonJobProperties>> {
+  private async prepareJobCommonAsync(archiveUrl: string): Promise<Partial<CommonJobProperties>> {
     const secrets = this.credentials
       ? {
           secrets: {
@@ -71,24 +81,24 @@ class AndroidBuilder implements Builder {
     };
   }
 
-  private async prepareGenericJob(
+  private async prepareGenericJobAsync(
     archiveUrl: string,
-    preset: AndroidGenericPreset
+    buildProfile: AndroidGenericBuildProfile
   ): Promise<Partial<Android.GenericJob>> {
     return {
-      ...(await this.prepareJobCommon(archiveUrl)),
+      ...(await this.prepareJobCommonAsync(archiveUrl)),
       type: BuildType.Generic,
-      gradleCommand: preset.buildCommand,
-      artifactPath: preset.artifactPath,
+      gradleCommand: buildProfile.buildCommand,
+      artifactPath: buildProfile.artifactPath,
     };
   }
 
-  private async prepareManagedJob(
+  private async prepareManagedJobAsync(
     archiveUrl: string,
-    preset: AndroidManagedPreset
+    buildProfile: AndroidManagedBuildProfile
   ): Promise<Partial<Android.ManagedJob>> {
     return {
-      ...(await this.prepareJobCommon(archiveUrl)),
+      ...(await this.prepareJobCommonAsync(archiveUrl)),
       type: BuildType.Managed,
       packageJson: 'packageJson',
       manifest: 'manifest',
@@ -97,50 +107,10 @@ class AndroidBuilder implements Builder {
 
   private shouldLoadCredentials(): boolean {
     return !!(
-      this.preset.workflow === Workflow.Managed ||
-      (this.preset.workflow === Workflow.Generic && !this.preset.withoutCredentials)
+      this.buildProfile.workflow === Workflow.Managed ||
+      (this.buildProfile.workflow === Workflow.Generic && !this.buildProfile.withoutCredentials)
     );
   }
-
-  //
-  //    const keystore = await ctx.android.fetchKeystore(experienceName);
-  //    await this.readCredentialsJson();
-  //
-  //    if (this.options.clearCredentials) {
-  //      if (this.options.parent?.nonInteractive) {
-  //        throw new BuildError(
-  //          'Clearing your Android build credentials from our build servers is a PERMANENT and IRREVERSIBLE action, it\'s not supported when combined with the "--non-interactive" option'
-  //        );
-  //      }
-  //      await runCredentialsManager(ctx, new RemoveKeystore(experienceName));
-  //    }
-  //
-  //    const paramKeystore = await getKeystoreFromParams(this.options);
-  //    if (paramKeystore) {
-  //      await useKeystore(ctx, experienceName, paramKeystore);
-  //    } else {
-  //         }
-  //
-  //  }
-  //
-  //  async prepareRemote() {
-  //    const ctx = new Context();
-  //    await ctx.init(this.projectDir);
-  //    const experienceName = `@${ctx.manifest.owner || ctx.user.username}/${ctx.manifest.slug}`;
-  //
-  //    await runCredentialsManager(
-  //      ctx,
-  //      new SetupAndroidKeystore(experienceName, {
-  //        nonInteractive: this.options.parent?.nonInteractive,
-  //      })
-  //    );
-  //
-  //  }
-  //
-  //  async readLocal() {
-  //    const credJson = credentialsJson.read(this.projectDir)
-  //
-  //  }
 }
 
 export { AndroidBuilder };

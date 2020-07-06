@@ -26,28 +26,28 @@ export class AndroidCredentialsProvider implements CredentialsProvider {
     return `@${accountName}/${projectName}`;
   }
 
-  public async init() {
+  public async initAsync() {
     await this.ctx.init(this.projectDir);
   }
 
-  public async hasRemote(): Promise<boolean> {
+  public async hasRemoteAsync(): Promise<boolean> {
     const keystore = await this.ctx.android.fetchKeystore(this.projectFullName);
     return this.isValidKeystore(keystore);
   }
 
-  public async hasLocal(): Promise<boolean> {
-    if (!(await credentialsJson.exists(this.projectDir))) {
+  public async hasLocalAsync(): Promise<boolean> {
+    if (!(await credentialsJson.fileExistsAsync(this.projectDir))) {
       return false;
     }
     try {
-      const credentials = await credentialsJson.readAndroid(this.projectDir);
+      const credentials = await credentialsJson.readAndroidAsync(this.projectDir);
       return this.isValidKeystore(credentials.keystore);
     } catch (_) {
       return false;
     }
   }
 
-  public async useRemote(): Promise<void> {
+  public async useRemoteAsync(): Promise<void> {
     await runCredentialsManager(
       this.ctx,
       new SetupAndroidKeystore(this.projectFullName, {
@@ -61,18 +61,18 @@ export class AndroidCredentialsProvider implements CredentialsProvider {
     this.credentials = { keystore };
   }
 
-  public async useLocal(): Promise<void> {
-    const credentials = await credentialsJson.readAndroid(this.projectDir);
+  public async useLocalAsync(): Promise<void> {
+    const credentials = await credentialsJson.readAndroidAsync(this.projectDir);
     if (!this.isValidKeystore(credentials.keystore)) {
       throw new Error('Invalid keystore in credentials.json');
     }
     this.credentials = credentials;
   }
 
-  public async isLocalSynced(): Promise<boolean> {
+  public async isLocalSyncedAsync(): Promise<boolean> {
     const [remote, local] = await Promise.allSettled([
       this.ctx.android.fetchKeystore(this.projectFullName),
-      await credentialsJson.readAndroid(this.projectDir),
+      await credentialsJson.readAndroidAsync(this.projectDir),
     ]);
     if (remote.status === 'fulfilled' && local.status === 'fulfilled') {
       const r = remote.value!;
@@ -88,7 +88,7 @@ export class AndroidCredentialsProvider implements CredentialsProvider {
     return true;
   }
 
-  public async getCredentials(): Promise<AndroidCredentials> {
+  public async getCredentialsAsync(): Promise<AndroidCredentials> {
     if (!this.credentials) {
       throw new Error('credentials not specified'); // shouldn't happen
     }
